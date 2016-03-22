@@ -1,0 +1,11 @@
+{
+  "name": "changeset-replay-tool",
+  "version": "1.0.0",
+  "description": "This tool collects changesets from an OSM API endpoint and replays then against a different endpoint, rewriting IDs as objects are created.",
+  "main": "decrement-versions.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
