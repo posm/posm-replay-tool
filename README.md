@@ -1,6 +1,6 @@
 # Changeset Replay Tool
 
-This tool collects changesets from an OSM API endpoint and replays then against
+This tool collects changesets from an OSM API endpoint and replays them against
 a different endpoint, rewriting IDs as objects are created.
 
 ## Steps
@@ -111,6 +111,55 @@ https://www.npmjs.com/package/dependency-graph -- Use entity IDs as dependencies
 Alternately, changesets depend on entities.
 
 Inverted index of changesets by entity IDs. Use this to look up changeset order after determining entity ordering
+
+## Current Problems
+
+* Ensure that changeset IDs are rewritten and a clean set of changesets apply
+* Ensure that local "merge conflicts" don't occur
+* Rewrite entity IDs after creating new elements (increase the sequence value)
+* Raise conflicts/confirmations on nth (2+) node movements (OR prefer local changes with the assumption that they represent ground truthing)
+* Determine whether ^^ applies to ways (it would if we were using the OSCs, but since we're generating OSCs from the diff, the diff will have been updated with whatever tag + ref changes made during a previous resolution)
+
+## Future Problems
+
+* Pre-emptive conflict detection (by querying the API for entities referred to in a given changeset)
+* Working set size reduction (R-Tree filtering of input AOI)
+* Moving nodes locally + remotely. 1 remote move, 2+ local moves. First will raise a conflict, subsequent local moves won't.
+  * Keep a sorted list (as a file or a prefixed tree, possibly containing some state) containing the IDs of entities that have been touched (and a separate one for conflicts and a separate one for conflicts resolved in favor of upstream edits). If a changeset touches anything in the conflicted list, mark it as conflicted.
+  * nth edits are conflicts IF the previous version of the entity in question was resolved in favor of upstream. If it was resolved in favor of the local version, it's not a conflict.
+
+  * Look at the previous state (lat/lng/nds/members/tags) of the node (via `xpath` against the full XML) and compare it to the upstream version. This will indicate how the conflict was resolved (but only for ours/theirs, not a merge).
+
+## Conflict resolution
+
+1. Update the version number of the entity that's conflicting (accept local)
+2. Drop the entity that's conflicting from the OSC (accept remote). ADD TO CONFLICT LIST as "remote"
+3. Update the version number AND body of the entity that's conflicting (merge). ADD TO CONFLICT LIST as "merged"
+
+(Version numbers don't need to be updated because they will automatically increment because we're generating OSC from XML diffs.)
+
+## Other Approaches
+
+Pull changesets for the matching bounding box and apply them to the upstream branch before starting. May need to paginate if more than 100 changesets appear.
+
+This approach allows us to merge each commit on `master` against `upstream` (locally) to identify + resolve merge conflicts. Once that's been done, `upstream` can be "rebased" against the remote API, applying each commit (vs. submitting each commit at merge-time).
+
+OR
+
+Fetch the same extract from Overpass, which will have all of the changesets applied (and we don't care about the content of individual changesets)
+
+```
+echo "(node(-3.515306,-80.259418,-3.447453,-80.184231);<;>>;>;);out meta;" > huaquillas.overpass
+wget -O huaquillas-201603301217.xml --post-file=huaquillas.overpass http://overpass-api.de/api/interpreter
+```
+
+
+xsltproc --stringparam pattern //changeset/@id --stringparam value . whatever.xslt remote_changesets.xml
+
+`fetch-remote-changesets.sh <bbox>`
+`apply-remote-changesets.sh <directory>`
+
+
 
 ```
 psql -d openstreetmap -c "CREATE EXTENSION btree_gist"
