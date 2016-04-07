@@ -5,13 +5,14 @@ var fs = require("fs"),
 
 var xml2json = require("xml2json");
 
-var xml = fs.readFileSync(path.join(process.cwd(), process.argv[2]), "utf8"),
+var xml = fs.readFileSync(path.resolve(process.argv[2]), "utf8"),
     changeset = xml2json.toJson(xml, {
       object: true,
       reversible: true,
       arrayNotation: true,
     });
 
+// TODO also do this for additions
 if (changeset.osmChange[0].modify) {
   (changeset.osmChange[0].modify[0].node || []).forEach(x => x.version--);
   (changeset.osmChange[0].modify[0].way || []).forEach(x => x.version--);
