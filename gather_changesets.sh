@@ -1,6 +1,5 @@
 #/bin/bash
 
-
 start=${1}
 osm_base_url=${OSM_BASE_URL:-http://localhost:3000}
 
@@ -15,6 +14,7 @@ changeset_id=$start
 
 mkdir -p changesets/
 
+# this will run until curl encounters an error (ideally a 404)
 for ((changeset_id=$start; ; changeset_id++)); do
   echo "===> Gathering ${changeset_id}"
   curl -sf ${osm_base_url}/api/0.6/changeset/${changeset_id} -o changesets/${changeset_id}.xml

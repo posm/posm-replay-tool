@@ -1,0 +1,153 @@
+#!/usr/bin/env node
+
+"use strict";
+
+const execSync = require("child_process").execSync,
+  exec = require("child_process").exec,
+  fs = require("fs"),
+  path = require("path"),
+  readline = require("readline"),
+  spawn = require("child_process").spawn,
+  stream = require("stream"),
+  util = require("util");
+
+// TODO use chalk
+const clc = require("cli-color"),
+  tmp = require("tmp");
+
+// squelch EPIPE errors
+require("epipebomb")();
+
+let editor;
+
+try {
+  editor = execSync("git config core.editor");
+} catch(err) {
+  editor = process.env.VISUAL || process.env.EDITOR || "vi";
+}
+
+const BinarySplitter = require("./lib/binary-splitter");
+
+const file = process.argv.slice(-1).pop();
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+const input = fs.createReadStream(path.resolve(file), "utf8").pipe(new BinarySplitter()),
+  output = fs.createWriteStream(path.resolve(file + ".resolved"), "utf8");
+
+class ConflictTracker extends stream.Transform {
+  constructor() {
+    super();
+
+    this.conflict = "";
+  }
+
+  _transform(chunk, encoding, callback) {
+    const line = chunk.toString();
+
+    switch (true) {
+    case line.startsWith("<<<<<<< "):
+      this.state = "ours";
+      this[this.state] = "";
+      this.header = line;
+      // re-initialize conflict body
+      this.conflict = line;
+      break;
+
+    case line.startsWith("======="):
+      this.state = "theirs";
+      this[this.state] = "";
+      this.conflict += line;
+      this.middle = line;
+      break;
+
+    case line.startsWith(">>>>>>> "):
+      this.conflict += line;
+      this.footer = line;
+      // reset state
+      this.state = null;
+
+      // TODO this is line-based not feature-based
+      // TODO track entity ids (unless the first line of the conflict is an entity)
+      // line.match(/^\s*\<node/)
+
+      // TODO display context above (using a ring buffer)
+      process.stdout.write(clc.blackBright(this.header));
+      process.stdout.write(clc.cyan(this.ours));
+      process.stdout.write(clc.blackBright(this.middle));
+      process.stdout.write(clc.magenta(this.theirs));
+      process.stdout.write(clc.blackBright(this.footer));
+
+      return rl.question(clc.blueBright.bold("Resolve this hunk [l,r,b,e,q,?]? "), answer => {
+        switch (answer) {
+        case "l":
+          return callback(null, this.ours);
+
+        case "r":
+          // TODO mangle version number
+          return callback(null, this.theirs);
+
+        case "b":
+          // both
+          return callback(null, this.ours + this.theirs);
+
+        case "e":
+          const tmpFile = tmp.fileSync();
+          fs.writeSync(tmpFile.fd, this.conflict);
+          fs.closeSync(tmpFile.fd);
+
+          rl.pause();
+
+          const args = editor.split(" ").concat([tmpFile.name]),
+            edit = spawn(args[0], args.slice(1), {
+              stdio: "inherit"
+            });
+
+          edit.on("error", err => {
+            console.warn(err.stack);
+            process.exit(1);
+          });
+
+          edit.on("exit", code => {
+            rl.resume();
+
+            return callback(null, fs.readFileSync(tmpFile.name, "utf8"));
+          });
+
+          break;
+
+        case "q":
+          // TODO cleanup or write the rest of the file out, conflicts included
+          process.exit(1);
+
+        case "?":
+        default:
+          // ask the question again
+          console.log("Uhhh");
+          return callback();
+        }
+      });
+
+      break;
+
+    default:
+      if (this.state) {
+        this[this.state] += line;
+        this.conflict += line;
+      } else {
+        return callback(null, line);
+      }
+    }
+
+    return callback();
+  }
+
+  _flush(callback) {
+    return callback();
+  }
+}
+
+input.pipe(new ConflictTracker()).pipe(output);

@@ -9,6 +9,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "buffertools": "^2.1.3",
+    "cli-color": "^1.1.0",
+    "epipebomb": "^0.1.1",
+    "tmp": "0.0.28",
     "xml2json": "^0.9.0"
   }
 }

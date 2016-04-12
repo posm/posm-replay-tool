@@ -12,15 +12,15 @@ extract=huaquillas-fixed.pbf
 start=37765184
 repo=work
 
-mkdir -p work/
-pushd work
+mkdir -p $repo/
+pushd $repo
 git init
 popd
 
 echo "===> Generating XML"
-osmconvert $extract | tidy -q -xml -indent --indent-spaces 2 --indent-attributes yes -utf8 - > work/data.osm
+osmconvert $extract | tidy -q -xml -indent --indent-spaces 2 --indent-attributes yes -utf8 - > $repo/data.osm
 
-pushd work
+pushd $repo
 git add data.osm
 git commit -m "Source point"
 git tag start
@@ -35,17 +35,17 @@ for ((changeset_id=$start; ; changeset_id++)); do
 
   echo "===> Processing ${changeset_id}"
 
-  osmconvert work/data.osm changesets/${changeset_id}.osc | tidy -q -xml -indent --indent-spaces 2 --indent-attributes yes -utf8 - > work/${changeset_id}.osm
-  mv work/${changeset_id}.osm work/data.osm
+  osmconvert $repo/data.osm changesets/${changeset_id}.osc | tidy -q -xml -indent --indent-spaces 2 --indent-attributes yes -utf8 - > $repo/${changeset_id}.osm
+  mv $repo/${changeset_id}.osm $repo/data.osm
 
-  pushd work
+  pushd $repo
   git commit -aF ../changesets/${changeset_id}.xml
   popd
 done
 
 echo "===> Applying changes"
 
-# pushd work
+# pushd $repo
 # git filter-branch --tree-filter "/Users/seth/src/americanredcross/changeset-replay-tool/foreach-commit.sh"
 # popd
 
