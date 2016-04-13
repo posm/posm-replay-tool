@@ -79,20 +79,26 @@ handler.on("node", node => {
     id: node.id,
   };
 
-  mkdirp.sync(path.resolve(path.join(target, "nodes", node.id.toString())));
+  mkdirp.sync(path.resolve(path.join(target, "nodes")));
 
-  // TODO CSV for nicer diffs
-  fs.writeFileSync(path.resolve(path.join(target, "nodes", node.id + ".json")),
-    JSON.stringify(obj, null, 2), // pretty-print for nice diffs
+  const tsv = Object.keys(obj).sort().reduce((tsv, k) => {
+    return tsv + [k, obj[k]].join("\t") + "\n";
+  }, "");
+
+  fs.writeFileSync(path.resolve(path.join(target, "nodes", node.id + ".tsv")),
+    tsv,
     "utf8");
 
-  const tags = node.tags();
+  const tags = node.tags(),
+    tagTsv = Object.keys(tags).sort().reduce((tsv, k) => {
+      return tsv + [k, tags[k]].join("\t") + "\n";
+    }, "");
 
-  Object.keys(tags).forEach(tag => {
-    fs.writeFileSync(path.resolve(path.join(target, "nodes", node.id.toString(), tag)),
-      tags[tag],
+  if (tagTsv.length > 0) {
+    fs.writeFileSync(path.resolve(path.join(target, "nodes", node.id + ".tags.tsv")),
+      tagTsv,
       "utf8");
-  });
+  }
 });
 
 handler.on("way", way => {
@@ -109,24 +115,32 @@ handler.on("way", way => {
     id: way.id,
   };
 
-  mkdirp.sync(path.resolve(path.join(target, "ways", way.id.toString())));
+  mkdirp.sync(path.resolve(path.join(target, "ways")));
 
-  // TODO CSV for nicer diffs
-  fs.writeFileSync(path.resolve(path.join(target, "ways", way.id + ".json")),
-    JSON.stringify(obj, null, 2), // pretty-print for nice diffs
+  const tsv = Object.keys(obj).sort().reduce((tsv, k) => {
+    return tsv + [k, obj[k]].join("\t") + "\n";
+  }, "");
+
+  fs.writeFileSync(path.resolve(path.join(target, "ways", way.id + ".tsv")),
+    tsv,
     "utf8");
 
-  const tags = way.tags();
+  const tags = way.tags(),
+    tagTsv = Object.keys(tags).sort().reduce((tsv, k) => {
+      return tsv + [k, tags[k]].join("\t") + "\n";
+    }, "");
 
-  Object.keys(tags).forEach(tag => {
-    fs.writeFileSync(path.resolve(path.join(target, "ways", way.id.toString(), tag)),
-      tags[tag],
+  if (tagTsv.length > 0) {
+    fs.writeFileSync(path.resolve(path.join(target, "ways", way.id + ".tags.tsv")),
+      tagTsv,
       "utf8");
-  });
+  }
 
-  way.node_refs().forEach((nodeId, i) => {
-    fs.symlinkSync(`../../nodes/${nodeId}.json`, path.resolve(path.join(target, "ways", way.id.toString(), `${i}.json`)))
-  });
+  if (way.nodes_count > 0) {
+    fs.writeFileSync(path.resolve(path.join(target, "ways", way.id + ".nds")),
+      way.node_refs().join("\n"),
+      "utf8");
+  }
 });
 
 handler.on("relation", relation => {
@@ -143,36 +157,32 @@ handler.on("relation", relation => {
     id: relation.id,
   };
 
-  mkdirp.sync(path.resolve(path.join(target, "relations", relation.id.toString())));
+  mkdirp.sync(path.resolve(path.join(target, "relations")));
 
-  // TODO CSV for nicer diffs
-  fs.writeFileSync(path.resolve(path.join(target, "relations", relation.id + ".json")),
-    JSON.stringify(obj, null, 2), // pretty-print for nice diffs
+  const tsv = Object.keys(obj).sort().reduce((tsv, k) => {
+    return tsv + [k, obj[k]].join("\t") + "\n";
+  }, "");
+
+  fs.writeFileSync(path.resolve(path.join(target, "relations", relation.id + ".tsv")),
+    tsv,
     "utf8");
 
-  const tags = relation.tags();
+  const tags = relation.tags(),
+    tagTsv = Object.keys(tags).sort().reduce((tsv, k) => {
+      return tsv + [k, tags[k]].join("\t") + "\n";
+    }, "");
 
-  Object.keys(tags).forEach(tag => {
-    fs.writeFileSync(path.resolve(path.join(target, "relations", relation.id.toString(), tag)),
-      tags[tag],
+  if (tagTsv.length > 0) {
+    fs.writeFileSync(path.resolve(path.join(target, "relations", relation.id + ".tags.tsv")),
+      tagTsv,
       "utf8");
-  });
+  }
 
-  relation.members().forEach((member, i) => {
-    switch (member.type) {
-    case "n":
-      fs.symlinkSync(`../../nodes/${member.ref}.json`, path.resolve(path.join(target, "relations", relation.id.toString(), `${i}-${member.role}.json`)))
-      break;
-
-    case "w":
-      fs.symlinkSync(`../../ways/${member.ref}.json`, path.resolve(path.join(target, "relations", relation.id.toString(), `${i}-${member.role}.json`)))
-      break;
-
-    case "r":
-      fs.symlinkSync(`../../relations/${member.ref}.json`, path.resolve(path.join(target, "relations", relation.id.toString(), `${i}-${member.role}.json`)))
-      break;
-    }
-  });
+  if (relation.members_count > 0) {
+    fs.writeFileSync(path.resolve(path.join(target, "relations", relation.id + ".members")),
+      relation.members().map(m => [m.type, m.ref, m.role].join("\t")).join("\n"),
+      "utf8");
+  }
 });
 
 osmium.apply(reader, handler);
