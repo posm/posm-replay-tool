@@ -32,6 +32,11 @@ changes.forEach(f => {
   while ((buffer = reader.read())) {
     let object;
 
+    // TODO do we care about node refs + memberships?
+    // they would be useful for reassembling geometries if we wanted to display
+    // them, but they otherwise bloat the repository
+    // NOTE: this is the equivalent of Overpass's >> (etc.) operators, but not
+    // fully since this is only a single pass
     while ((object = buffer.next())) {
       switch (true) {
       case object.visible === false:
