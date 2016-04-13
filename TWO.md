@@ -12,6 +12,8 @@ osmconvert aoi.xml --out-pbf > aoi.pbf
 
 Initialize a new repo w/ the current (remote) state, limited only to entities referred to by the changesets we're considering.
 
+TODO blindly replace everything from the starting point w/ this so there's a common ancestor
+
 ```bash
 node filter-by-use.js aoi.pbf aoi/ changesets/*.osc
 ```

@@ -6,7 +6,8 @@ const fs = require("fs"),
   path = require("path");
 
 const mkdirp = require("mkdirp"),
-  osmium = require("osmium");
+  osmium = require("osmium"),
+  yaml = require("js-yaml");
 
 if (process.argv[4] == null) {
   console.warn("Usage: filter-by-use.js <extract> <output directory> <OSMChange> [OSMChange...]");
@@ -77,28 +78,16 @@ handler.on("node", node => {
     changeset: node.changeset,
     version: node.version,
     id: node.id,
+    tags: node.tags(),
   };
 
   mkdirp.sync(path.resolve(path.join(target, "nodes")));
 
-  const tsv = Object.keys(obj).sort().reduce((tsv, k) => {
-    return tsv + [k, obj[k]].join("\t") + "\n";
-  }, "");
-
-  fs.writeFileSync(path.resolve(path.join(target, "nodes", node.id + ".tsv")),
-    tsv,
+  fs.writeFileSync(path.resolve(path.join(target, "nodes", node.id + ".yaml")),
+    yaml.safeDump(obj, {
+      sortKeys: true
+    }),
     "utf8");
-
-  const tags = node.tags(),
-    tagTsv = Object.keys(tags).sort().reduce((tsv, k) => {
-      return tsv + [k, tags[k]].join("\t") + "\n";
-    }, "");
-
-  if (tagTsv.length > 0) {
-    fs.writeFileSync(path.resolve(path.join(target, "nodes", node.id + ".tags.tsv")),
-      tagTsv,
-      "utf8");
-  }
 });
 
 handler.on("way", way => {
@@ -113,34 +102,17 @@ handler.on("way", way => {
     changeset: way.changeset,
     version: way.version,
     id: way.id,
+    tags: way.tags(),
+    nds: way.node_refs(),
   };
 
   mkdirp.sync(path.resolve(path.join(target, "ways")));
 
-  const tsv = Object.keys(obj).sort().reduce((tsv, k) => {
-    return tsv + [k, obj[k]].join("\t") + "\n";
-  }, "");
-
-  fs.writeFileSync(path.resolve(path.join(target, "ways", way.id + ".tsv")),
-    tsv,
+  fs.writeFileSync(path.resolve(path.join(target, "ways", way.id + ".yaml")),
+    yaml.safeDump(obj, {
+      sortKeys: true
+    }),
     "utf8");
-
-  const tags = way.tags(),
-    tagTsv = Object.keys(tags).sort().reduce((tsv, k) => {
-      return tsv + [k, tags[k]].join("\t") + "\n";
-    }, "");
-
-  if (tagTsv.length > 0) {
-    fs.writeFileSync(path.resolve(path.join(target, "ways", way.id + ".tags.tsv")),
-      tagTsv,
-      "utf8");
-  }
-
-  if (way.nodes_count > 0) {
-    fs.writeFileSync(path.resolve(path.join(target, "ways", way.id + ".nds")),
-      way.node_refs().join("\n"),
-      "utf8");
-  }
 });
 
 handler.on("relation", relation => {
@@ -155,34 +127,17 @@ handler.on("relation", relation => {
     changeset: relation.changeset,
     version: relation.version,
     id: relation.id,
+    tags: relation.tags(),
+    members: relation.members(),
   };
 
   mkdirp.sync(path.resolve(path.join(target, "relations")));
 
-  const tsv = Object.keys(obj).sort().reduce((tsv, k) => {
-    return tsv + [k, obj[k]].join("\t") + "\n";
-  }, "");
-
-  fs.writeFileSync(path.resolve(path.join(target, "relations", relation.id + ".tsv")),
-    tsv,
+  fs.writeFileSync(path.resolve(path.join(target, "relations", relation.id + ".yaml")),
+    yaml.safeDump(obj, {
+      sortKeys: true
+    }),
     "utf8");
-
-  const tags = relation.tags(),
-    tagTsv = Object.keys(tags).sort().reduce((tsv, k) => {
-      return tsv + [k, tags[k]].join("\t") + "\n";
-    }, "");
-
-  if (tagTsv.length > 0) {
-    fs.writeFileSync(path.resolve(path.join(target, "relations", relation.id + ".tags.tsv")),
-      tagTsv,
-      "utf8");
-  }
-
-  if (relation.members_count > 0) {
-    fs.writeFileSync(path.resolve(path.join(target, "relations", relation.id + ".members")),
-      relation.members().map(m => [m.type, m.ref, m.role].join("\t")).join("\n"),
-      "utf8");
-  }
 });
 
 osmium.apply(reader, handler);
