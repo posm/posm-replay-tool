@@ -32,17 +32,16 @@ handler.on("node", node => {
   const obj = {
     lat: node.lat,
     lon: node.lon,
-    user: node.user,
     uid: node.uid,
-    visible: node.visible,
-    // TODO do we care about the changeset?
-    // it throws conflicts w/o being useful, but knowing which changeset was the
-    // source of a given revision could be valuable
-    changeset: node.changeset,
     version: node.version,
     id: node.id,
-    tags: node.tags(),
   };
+
+  const tags = node.tags();
+
+  if (tags.length > 0) {
+    obj.tags = tags;
+  }
 
   mkdirp.sync(path.resolve(path.dirname(basename)));
 
@@ -62,15 +61,17 @@ handler.on("way", way => {
   }
 
   const obj = {
-    user: way.user,
     uid: way.uid,
-    visible: way.visible,
-    changeset: way.changeset,
     version: way.version,
     id: way.id,
-    tags: way.tags(),
     nds: way.node_refs(),
   };
+
+  const tags = way.tags();
+
+  if (tags.length > 0) {
+    obj.tags = tags;
+  }
 
   mkdirp.sync(path.dirname(basename));
 
@@ -90,15 +91,17 @@ handler.on("relation", relation => {
   }
 
   const obj = {
-    user: relation.user,
     uid: relation.uid,
-    visible: relation.visible,
-    changeset: relation.changeset,
     version: relation.version,
     id: relation.id,
-    tags: relation.tags(),
     members: relation.members(),
   };
+
+  const tags = relation.tags();
+
+  if (tags.length > 0) {
+    obj.tags = tags;
+  }
 
   mkdirp.sync(path.dirname(basename));
 
