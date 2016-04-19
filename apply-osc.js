@@ -10,7 +10,7 @@ const mkdirp = require("mkdirp"),
   yaml = require("js-yaml");
 
 if (process.argv[3] == null) {
-  console.warn("Usage: filter-by-use.js <OsmChange> <output directory>");
+  console.warn("Usage: apply-osc.js <OsmChange> <output directory>");
   return process.exit(1);
 }
 
