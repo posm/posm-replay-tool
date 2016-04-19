@@ -39,7 +39,7 @@ handler.on("node", node => {
 
   const tags = node.tags();
 
-  if (tags.length > 0) {
+  if (Object.keys(tags).length > 0) {
     obj.tags = tags;
   }
 
@@ -69,7 +69,7 @@ handler.on("way", way => {
 
   const tags = way.tags();
 
-  if (tags.length > 0) {
+  if (Object.keys(tags).length > 0) {
     obj.tags = tags;
   }
 
@@ -99,7 +99,7 @@ handler.on("relation", relation => {
 
   const tags = relation.tags();
 
-  if (tags.length > 0) {
+  if (Object.keys(tags).length > 0) {
     obj.tags = tags;
   }
 
