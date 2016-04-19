@@ -49,12 +49,12 @@ const renumber = entity => {
   }
 
   if (entity.members) {
-    // TODO check that members is in the form we expect
     entity.members = entity.members.map(member => {
-      const type = ENTITY_TYPES[members[0]],
-        id = member[1];
+      const type = ENTITY_TYPES[member.type];
 
-      return member.splice(1, 1, placeholders[type].get(id) || id);
+      member.ref = placeholders[type].get(member.ref) || member.ref;
+
+      return member;
     });
   }
 
@@ -161,9 +161,9 @@ diffProcessor._flush = function(callback) {
       case "relation":
         (entity.members || []).forEach(member => {
           fragment.ele("member", {
-            type: OSM_ENTITY_TYPES[member[0]],
-            ref: member[1],
-            role: member[2],
+            type: OSM_ENTITY_TYPES[member.type],
+            ref: member.ref,
+            role: member.role,
           });
         });
 
@@ -213,9 +213,9 @@ diffProcessor._flush = function(callback) {
       case "relation":
         (entity.members || []).forEach(member => {
           fragment.ele("member", {
-            type: OSM_ENTITY_TYPES[member[0]],
-            ref: member[1],
-            role: member[2],
+            type: OSM_ENTITY_TYPES[member.type],
+            ref: member.ref,
+            role: member.role,
           });
         });
 
