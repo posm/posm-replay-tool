@@ -105,7 +105,7 @@ handler.on("relation", relation => {
 
   mkdirp.sync(path.dirname(basename));
 
-  fs.writeFileSync(basename + ".tsv", yaml.safeDump(obj, {
+  fs.writeFileSync(basename + ".yaml", yaml.safeDump(obj, {
     sortKeys: true
   }), "utf8");
 });
