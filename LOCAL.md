@@ -102,11 +102,12 @@ You'll need to update the sequences in order for new IDs to be assigned
 appropriately:
 
 ```bash
-psql -d osm_upstream -c "select setval('changesets_id_seq', (select max(id) from changesets))"
-psql -d osm_upstream -c "select setval('current_nodes_id_seq', (select max(node_id) from nodes))"
-psql -d osm_upstream -c "select setval('current_ways_id_seq', (select max(way_id) from ways))"
-psql -d osm_upstream -c "select setval('current_relations_id_seq', (select max(relation_id) from relations))"
-psql -d osm_upstream -c "select setval('users_id_seq', (select max(id) from users))"
+export PGDATABASE=osm_upstream
+psql -c "select setval('changesets_id_seq', (select max(id) from changesets))"
+psql -c "select setval('current_nodes_id_seq', (select max(node_id) from nodes))"
+psql -c "select setval('current_ways_id_seq', (select max(way_id) from ways))"
+psql -c "select setval('current_relations_id_seq', (select max(relation_id) from relations))"
+psql -c "select setval('users_id_seq', (select max(id) from users))"
 ```
 
 To keep working, you'll want 2 versions of `openstreetmap-website` running, one
@@ -119,8 +120,11 @@ DATABASE_URL=postgres:///osm_posm bundle exec rails server \
   -b 0.0.0.0 \
   -P tmp/pids/posm.pid
 
+# create a POSM user (to allow auth to be bypasses)
+DATABASE_URL=postgres:///osm_upstream bundle exec rake osm:users:create display_name='POSM' description='Portable OpenStreetMap'
+
 # start an instance w/ upstream data on :3001
-DATABASE_URL=postgres:///osm_upstream bundle exec rails server \
+OSM_POSM_USER=POSM DATABASE_URL=postgres:///osm_upstream bundle exec rails server \
   -p 3001 \
   -b 0.0.0.0 \
   -P tmp/pids/upstream.pid

@@ -2,34 +2,37 @@
 
 "use strict";
 
-const assert = require("assert"),
-  execSync = require("child_process").execSync,
+const execSync = require("child_process").execSync,
   fs = require("fs"),
   path = require("path"),
   stream = require("stream");
 
 const builder = require("xmlbuilder"),
-  mkdirp = require("mkdirp"),
   yaml = require("js-yaml"),
   yargs = require("yargs");
 
 const BinarySplitter = require("./lib/binary-splitter");
 
 const argv = yargs
-  .usage("Usage: $0 [-c changeset_id]")
+  .usage("Usage: $0 [-c changeset_id] [-m id map]")
   .argv;
 
 const placeholders = {
-    nodes: new Map(),
-    ways: new Map(),
-    relations: new Map(),
+    nodes: {},
+    ways: {},
+    relations: {},
   },
   creates = [],
   modifies = [],
   deletes = [],
   changeset = argv.c || 0;
 
-let placeholderId = -1;
+let placeholderId = -1,
+  output = process.stderr;
+
+if (argv.m) {
+  output = fs.createWriteStream(path.resolve(argv.m));
+}
 
 const ENTITY_TYPES = {
   n: "nodes",
@@ -45,14 +48,14 @@ const OSM_ENTITY_TYPES = {
 
 const renumber = entity => {
   if (entity.nds) {
-    entity.nds = entity.nds.map(id => placeholders.nodes.get(id) || id);
+    entity.nds = entity.nds.map(id => placeholders.nodes[id] || id);
   }
 
   if (entity.members) {
     entity.members = entity.members.map(member => {
       const type = ENTITY_TYPES[member.type];
 
-      member.ref = placeholders[type].get(member.ref) || member.ref;
+      member.ref = placeholders[type][member.ref] || member.ref;
 
       return member;
     });
@@ -76,10 +79,10 @@ diffProcessor._transform = (line, _, callback) => {
   case "A":
     entity = yaml.safeLoad(fs.readFileSync(path.resolve(filename), "utf8"));
 
-    placeholders[entityType].set(entity.id, placeholderId--);
+    placeholders[entityType][entity.id] = placeholderId--;
 
     entity.type = OSM_ENTITY_TYPES[entityType];
-    entity.id = placeholders[entityType].get(entity.id);
+    entity.id = placeholders[entityType][entity.id];
 
     // renumber refs
     entity = renumber(entity);
@@ -248,6 +251,18 @@ diffProcessor._flush = function(callback) {
   }
 
   this.push("</osmChange>\n");
+
+  const reverseMap = Object.keys(placeholders).reduce((obj, type) => {
+    obj[type] = Object.keys(placeholders[type]).reduce((obj, originalId) => {
+      obj[placeholders[type][originalId]] = originalId;
+
+      return obj;
+    }, {});
+
+    return obj;
+  }, {})
+
+  output.write(JSON.stringify(reverseMap));
 
   return callback();
 };
