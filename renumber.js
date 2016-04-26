@@ -28,9 +28,9 @@ try {
       entity = yaml.safeLoad(fs.readFileSync(entityPath));
 
     if (entity.nds.some(nd => nodeIds.indexOf(nd) >= 0)) {
-      console.warn("%s has nds that need to be rewritten");
+      console.warn("%s has nds that need to be rewritten", entityPath);
 
-      entity.nds = entity.nds.map(nd => placeholder.nodes[nd] || nd);
+      entity.nds = entity.nds.map(nd => placeholders.nodes[nd] || nd);
 
       fs.writeFileSync(entityPath, yaml.safeDump(entity), "utf8");
     }
@@ -47,12 +47,12 @@ try {
       entity = yaml.safeLoad(fs.readFileSync(entityPath));
 
     if (entity.members.some(member => nodeIds.indexOf(member.ref) >= 0)) {
-      console.warn("%s has members that need to be rewritten");
+      console.warn("%s has members that need to be rewritten", entityPath);
 
       entity.members = entity.members.map(member => {
         return {
           type: member.type,
-          ref: placeholder[ENTITY_TYPES[member.type]][member.ref] || member.ref,
+          ref: placeholders[ENTITY_TYPES[member.type]][member.ref] || member.ref,
           role: member.role,
         };
       });
