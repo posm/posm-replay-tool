@@ -18,7 +18,12 @@ const argv = yargs
     .usage("Usage: $0 [-m id map]")
     .demand("m")
     .argv,
-  placeholders = JSON.parse(fs.readFileSync(path.resolve(argv.m), "utf8"));
+  // load placeholders w/ an empty object as a fallback
+  placeholders = JSON.parse(fs.readFileSync(path.resolve(argv.m), "utf8") || "{}");
+
+placeholders.nodes = placeholders.nodes || {};
+placeholders.ways = placeholders.ways || {};
+placeholders.relations = placeholders.relations || {};
 
 const nodeIds = Object.keys(placeholders.nodes).map(Number);
 
