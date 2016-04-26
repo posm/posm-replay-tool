@@ -79,10 +79,10 @@ diffProcessor._transform = (line, _, callback) => {
   case "A":
     entity = yaml.safeLoad(fs.readFileSync(path.resolve(filename), "utf8"));
 
-    placeholders[entityType][entity.id] = placeholderId--;
+    placeholders[entityType][entityId] = placeholderId--;
 
     entity.type = OSM_ENTITY_TYPES[entityType];
-    entity.id = placeholders[entityType][entity.id];
+    entity.id = placeholders[entityType][entityId];
 
     // renumber refs
     entity = renumber(entity);
@@ -106,6 +106,7 @@ diffProcessor._transform = (line, _, callback) => {
   case "M":
     entity = yaml.safeLoad(fs.readFileSync(path.resolve(filename), "utf8"));
 
+    entity.id = entityId;
     entity.type = OSM_ENTITY_TYPES[entityType];
 
     // renumber refs
