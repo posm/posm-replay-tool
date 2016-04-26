@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "async": "^2.0.0-rc.3",
     "buffertools": "^2.1.3",
     "cli-color": "^1.1.0",
     "epipebomb": "^0.1.1",

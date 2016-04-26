@@ -5,7 +5,8 @@
 const fs = require("fs"),
   path = require("path");
 
-const yaml = require("js-yaml"),
+const async = require("async"),
+  yaml = require("js-yaml"),
   yargs = require("yargs");
 
 const ENTITY_TYPES = {
@@ -27,19 +28,11 @@ placeholders.relations = placeholders.relations || {};
 
 const nodeIds = Object.keys(placeholders.nodes).map(Number);
 
+let ways,
+  relations;
+
 try {
-  fs.readdirSync(path.resolve("ways")).forEach(filename => {
-    const entityPath = path.resolve(path.join("ways", filename)),
-      entity = yaml.safeLoad(fs.readFileSync(entityPath));
-
-    if (entity.nds.some(nd => nodeIds.indexOf(nd) >= 0)) {
-      console.warn("%s has nds that need to be rewritten", entityPath);
-
-      entity.nds = entity.nds.map(nd => placeholders.nodes[nd] || nd);
-
-      fs.writeFileSync(entityPath, yaml.safeDump(entity), "utf8");
-    }
-  });
+  ways = fs.readdirSync(path.resolve("ways"));
 } catch (err) {
   if (err.code !== "ENOENT") {
     console.warn(err.stack);
@@ -47,9 +40,46 @@ try {
 }
 
 try {
-  fs.readdirSync(path.resolve("relations")).forEach(filename => {
-    const entityPath = path.resolve(path.join("relations", filename)),
-      entity = yaml.safeLoad(fs.readFileSync(entityPath));
+  relations = fs.readdirSync(path.resolve("relations"));
+} catch (err) {
+  if (err.code !== "ENOENT") {
+    console.warn(err.stack);
+  }
+}
+
+async.eachLimit(ways, 50, (filename, next) => {
+  const entityPath = path.resolve(path.join("ways", filename));
+
+  return fs.readFile(entityPath, (err, data) => {
+    if (err) {
+      return next(err);
+    }
+
+    const entity = yaml.safeLoad(data);
+
+    if (entity.nds.some(nd => nodeIds.indexOf(nd) >= 0)) {
+      console.warn("%s has nds that need to be rewritten", entityPath);
+
+      entity.nds = entity.nds.map(nd => placeholders.nodes[nd] || nd);
+
+      return fs.writeFile(entityPath, yaml.safeDump(entity), "utf8", next);
+    }
+  });
+}, err => {
+  if (err) {
+    throw err;
+  }
+});
+
+async.eachLimit(relations, 50, (filename, next) => {
+  const entityPath = path.resolve(path.join("relations", filename));
+
+  return fs.readFile(entityPath, (err, data) => {
+    if (err) {
+      return next(err);
+    }
+
+    const entity = yaml.safeLoad(data);
 
     if (entity.members.some(member => nodeIds.indexOf(member.ref) >= 0)) {
       console.warn("%s has members that need to be rewritten", entityPath);
@@ -62,11 +92,11 @@ try {
         };
       });
 
-      fs.writeFileSync(entityPath, yaml.safeDump(entity), "utf8");
+      return fs.writeFile(entityPath, yaml.safeDump(entity), "utf8", next);
     }
-  });
-} catch (err) {
-  if (err.code !== "ENOENT") {
-    console.warn(err.stack);
+  })
+}, err => {
+  if (err) {
+    throw err;
   }
-}
+});
