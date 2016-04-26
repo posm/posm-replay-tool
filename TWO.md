@@ -78,6 +78,10 @@ git --no-pager log --reverse --format=%h marker..master | while read sha1; do
     # TODO sometimes this fails, in which case marker will have already been set to $sha1
     git mergetool -t opendiff --no-prompt
 
+    git clean -f
+
+    git add */
+
     git commit --allow-empty -C $sha1
   fi
 

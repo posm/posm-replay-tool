@@ -18,9 +18,22 @@ const ENTITY_TYPES = {
 const argv = yargs
     .usage("Usage: $0 [-m id map]")
     .demand("m")
-    .argv,
-  // load placeholders w/ an empty object as a fallback
-  placeholders = JSON.parse(fs.readFileSync(path.resolve(argv.m), "utf8") || "{}");
+    .argv;
+
+try {
+  const stats = fs.statSync(path.resolve(argv.m));
+
+  if (stats.size === 0) {
+    console.warn("Placeholder map is empty; skipping.");
+    process.exit(0);
+  }
+} catch (err) {
+  console.warn("Placeholder map does not exist; skipping.");
+  process.exit(0);
+}
+
+// load placeholders w/ an empty object as a fallback
+const placeholders = JSON.parse(fs.readFileSync(path.resolve(argv.m), "utf8"));
 
 placeholders.nodes = placeholders.nodes || {};
 placeholders.ways = placeholders.ways || {};
