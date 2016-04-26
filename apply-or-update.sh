@@ -16,7 +16,7 @@ if [ ! -f .git/${commit}.json ]; then
   changeset_id=$(curl -sfX PUT -d @changeset.xml -H "Content-Type: application/xml" ${osm_base_url}/api/0.6/changeset/create)
 
   # create an OSC from the current repo state
-  git diff --name-status @^ | sort | node ../generate-osc.js -c $changeset_id -m map.json > changeset.osc 2> map.json
+  git diff --name-status @^ | sort | node ../generate-osc.js -c $changeset_id -m map.json > changeset.osc
 
   >&2 echo "===> Uploading to changeset ${changeset_id}"
   curl -sX POST -d @changeset.osc -H "Content-Type: application/xml" ${osm_base_url}/api/0.6/changeset/${changeset_id}/upload -o response >&2
@@ -28,6 +28,9 @@ if [ ! -f .git/${commit}.json ]; then
     >&2 echo "Error:"
     >&2 cat response
     >&2 echo
+
+    # TODO close the changeset
+    # Here's your chance to fix the data, generate the changeset and continue
 
     exit 1
   fi
@@ -52,7 +55,7 @@ if [ ! -f .git/${commit}.json ]; then
 
   git commit -F commit.message
 
-  git clean -fdx
+  git clean -f
 
   # move the upstream tag now that it includes our data
   git tag -f upstream
@@ -62,18 +65,20 @@ if [ ! -f .git/${commit}.json ]; then
 else
   # already applied; renumber
 
-  >&2 echo "===> git housekeeping"
-  # added by us
-  git status --porcelain | grep ^AU | cut -d " " -f 2 | xargs git add
-  # added by them
-  git status --porcelain | grep ^UA | cut -d " " -f 2 | xargs git add
-  # deleted by both
-  git status --porcelain | grep ^DD | cut -d " " -f 2 | xargs git rm
+  # git cherry-pick $(< .git/CHERRY_PICK_HEAD)
 
-  >&2 echo "===> renumbering refs"
+  # >&2 echo "===> git housekeeping"
+  # # added by us
+  # git status --porcelain | grep ^AU | cut -d " " -f 2 | xargs git add
+  # # added by them
+  # git status --porcelain | grep ^UA | cut -d " " -f 2 | xargs git add
+  # # deleted by both
+  # git status --porcelain | grep ^DD | cut -d " " -f 2 | xargs git rm
+
+  >&2 echo "===> renumbering refs (according to ${commit})"
   node ../renumber.js -m .git/${commit}.json
 
   git add */
 
-  git commit --amend -C @
+  git commit --allow-empty --amend -C @
 fi
