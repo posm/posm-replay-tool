@@ -33,7 +33,7 @@ handler.on("node", node => {
     lat: node.lat,
     lon: node.lon,
     uid: node.uid,
-    version: node.version,
+    user: node.user,
   };
 
   const tags = node.tags();
@@ -61,7 +61,7 @@ handler.on("way", way => {
 
   const obj = {
     uid: way.uid,
-    version: way.version,
+    user: way.user,
     nds: way.node_refs(),
   };
 
@@ -90,7 +90,7 @@ handler.on("relation", relation => {
 
   const obj = {
     uid: relation.uid,
-    version: relation.version,
+    user: relation.user,
     members: relation.members(),
   };
 

@@ -8,10 +8,14 @@ const execSync = require("child_process").execSync,
   stream = require("stream");
 
 const builder = require("xmlbuilder"),
+  request = require("request"),
+  xml2json = require("xml2json"),
   yaml = require("js-yaml"),
   yargs = require("yargs");
 
 const BinarySplitter = require("./lib/binary-splitter");
+
+const OSM_BASE_URL = process.env.OSM_BASE_URL || "http://localhost:3001";
 
 const argv = yargs
   .usage("Usage: $0 [-c changeset_id] [-m id map]")
@@ -64,6 +68,24 @@ const renumber = entity => {
   return entity;
 }
 
+// entityType is singular
+const getVersion = (entityType, entityId, callback) => {
+  // TODO use async.cargo to batch requests
+  return request.get({
+    uri: OSM_BASE_URL + "/api/0.6/" + entityType + "/" + entityId
+  }, (err, rsp, xml) => {
+    if (err) {
+      return callback(err);
+    }
+
+    const body = xml2json.toJson(xml, {
+      object: true,
+    });
+
+    return callback(null, body.osm[entityType].version);
+  });
+}
+
 const diffProcessor = new stream.Transform();
 
 diffProcessor._transform = (line, _, callback) => {
@@ -83,25 +105,32 @@ diffProcessor._transform = (line, _, callback) => {
 
     entity.type = OSM_ENTITY_TYPES[entityType];
     entity.id = placeholders[entityType][entityId];
+    entity.version = 1;
 
     // renumber refs
     entity = renumber(entity);
 
     creates.push(entity);
 
-    break;
+    return callback();
 
   case "D":
     // read the version of the entity that was deleted
     entity = yaml.safeLoad(execSync(`git show @^:${filename}`));
 
-    deletes.push({
-      id: entityId,
-      type: OSM_ENTITY_TYPES[entityType],
-      version: entity.version,
-    });
+    return getVersion(OSM_ENTITY_TYPES[entityType], entityId, (err, version) => {
+      if (err) {
+        return callback(err);
+      }
 
-    break;
+      deletes.push({
+        id: entityId,
+        type: OSM_ENTITY_TYPES[entityType],
+        version: version,
+      });
+
+      return callback();
+    });
 
   case "M":
     entity = yaml.safeLoad(fs.readFileSync(path.resolve(filename), "utf8"));
@@ -112,18 +141,21 @@ diffProcessor._transform = (line, _, callback) => {
     // renumber refs
     entity = renumber(entity);
 
-    // OSM expects the starting version
-    entity.version--;
+    return getVersion(OSM_ENTITY_TYPES[entityType], entity.id, (err, version) => {
+      if (err) {
+        return callback(err);
+      }
 
-    modifies.push(entity);
+      entity.version = version;
 
-    break;
+      modifies.push(entity);
+
+      return callback();
+    });
 
   default:
     return callback(new Error("Unsupported action: " + action));
   }
-
-  return callback();
 };
 
 diffProcessor._flush = function(callback) {
