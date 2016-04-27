@@ -76,7 +76,7 @@ git --no-pager log --reverse --format=%h marker..master | while read sha1; do
     # In other words, we can show node movements, tag and ref/membership changes
     # but not way/relation composition (visually)
     # TODO sometimes this fails, in which case marker will have already been set to $sha1
-    git mergetool -t opendiff --no-prompt
+    git mergetool -t opendiff -y --no-prompt
 
     git clean -f
 
@@ -159,3 +159,46 @@ git-merge-renumber --commit=<commit>
 > A merge strategy is a program that determines how two (or more) commits are merged. By default, git merge uses the "recursive" strategy, found in the program git-merge-recursive. By specifying the --strategy <strategy> flag to git-merge (or git-pull) you tell it to invoke a different strategy. If you want to plug in your own merge strategy, you can, by creating an executable git-merge-mystrategy in your path and running git merge --strategy mystrategy.
 
 TODO when applying changesets, pretty print the XML using `tidy -q -xml -indent --indent-spaces 2 --indent-attributes yes -utf8`
+
+Track applied changesets on their own branch.
+
+```bash
+cd posm/
+git gc
+git checkout -b applied upstream
+git --no-pager log --reverse --format=%h upstream..osm | while read commit; do
+  >&2 echo "===> cherry-picking ${commit}"
+
+  # TODO confirm that theirs is right
+  git cherry-pick -X theirs $commit
+
+  >&2 echo "===> poke away"
+  # bash
+
+  if [ -f .git/CHERRY_PICK_HEAD ]; then
+    >&2 echo "===> git housekeeping"
+
+    # TODO C100 means that our renames weren't handled properly and we ended up with duplicates
+
+    git status --porcelain | grep ^AU | cut -d " " -f 2 | xargs git add
+    # added by them
+    git status --porcelain | grep ^UA | cut -d " " -f 2 | xargs git add
+    # deleted by both
+    git status --porcelain | grep ^DD | cut -d " " -f 2 | xargs git rm
+
+    (git status --porcelain | grep -q ^UU) && git mergetool -y --no-prompt
+
+    git clean -f
+
+    # git add */
+
+    git commit --allow-empty -C $commit
+  fi
+
+  >&2 echo "===> submitting ${commit}"
+
+  ../submit.sh $commit
+
+  git tag -f upstream $commit
+done
+```
