@@ -55,23 +55,6 @@ saxStream.on("opentag", node => {
     } catch (err) {
       console.warn(err.stack);
     }
-
-    // rewrite the entity id
-    const entity = yaml.safeLoad(fs.readFileSync(dstPath, "utf8"));
-
-    entity.id = newId;
-
-    fs.writeFileSync(dstPath, yaml.safeDump(entity), "utf8");
-  }
-
-  const entity = yaml.safeLoad(fs.readFileSync(dstPath, "utf8"));
-
-  if (entity.version !== node.attributes.new_version) {
-    // console.warn("Update %d to version %d", node.attributes.new_id, node.attributes.new_version);
-    // update the version number
-    entity.version = node.attributes.new_version | 0;
-
-    fs.writeFileSync(dstPath, yaml.safeDump(entity), "utf8");
   }
 });
 
