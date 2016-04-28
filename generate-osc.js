@@ -81,6 +81,16 @@ const createFetcher = (entityType) => {
       }
     }, (err, rsp, xml) => {
       if (err) {
+        tasks.forEach(x => x.callback(err));
+
+        return next(err);
+      }
+
+      if (rsp.statusCode !== 200) {
+        err = new Error("Request returned " + rsp.statusCode);
+
+        tasks.forEach(x => x.callback(err));
+
         return next(err);
       }
 
@@ -167,7 +177,8 @@ diffProcessor._transform = (line, _, callback) => {
       pending--;
 
       if (err) {
-        return console.warn(err.stack);
+        console.warn(err);
+        process.exit(1);
       }
 
       deletes.push({
@@ -193,7 +204,8 @@ diffProcessor._transform = (line, _, callback) => {
       pending--;
 
       if (err) {
-        return console.warn(err.stack);
+        console.warn(err);
+        process.exit(1);
       }
 
       entity.version = version;
