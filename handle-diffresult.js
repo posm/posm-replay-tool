@@ -39,7 +39,8 @@ saxStream.on("opentag", node => {
   const type = node.name + "s",
     dstPath = path.resolve(path.join(type, node.attributes.new_id + ".yaml"));
 
-  if (node.attributes.old_id !== node.attributes.new_id) {
+  if (node.attributes.old_id !== node.attributes.new_id && node.attributes.new_id != null) {
+    // rename (deletes should have been handled separately)
     const originalId = placeholders[type][node.attributes.old_id] || node.attributes.old_id,
       newId = node.attributes.new_id,
       srcPath = path.resolve(path.join(type, originalId + ".yaml"));
@@ -47,13 +48,15 @@ saxStream.on("opentag", node => {
     // update the placeholder map to point to minted ids
     placeholders[type][originalId] = newId;
 
-    // TODO use debug
-    // console.warn("%d → %s", originalId, newId);
-    try {
-      fs.linkSync(srcPath, dstPath);
-      fs.unlinkSync(srcPath);
-    } catch (err) {
-      console.warn(err.stack);
+    if (originalId !== newId) {
+      // TODO use debug
+      // console.warn("%d → %s", originalId, newId);
+      try {
+        fs.linkSync(srcPath, dstPath);
+        fs.unlinkSync(srcPath);
+      } catch (err) {
+        console.warn(err.stack);
+      }
     }
   }
 });

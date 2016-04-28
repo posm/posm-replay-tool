@@ -18,7 +18,8 @@ changeset_id=$(curl -sfX PUT -d @changeset.xml -H "Content-Type: application/xml
 
 # create an OSC from the current repo state
 # prevent diff and rename detection unless files are 100% identical
-git diff -C100% -M100% --name-status @^ | sort | node ../generate-osc.js -c $changeset_id -m map.json > changeset.osc
+# git diff -C100% -M100% --name-status @^ | sort | node ../generate-osc.js -c $changeset_id -m map.json > changeset.osc
+git diff --no-renames --name-status @^ | sort | node ../generate-osc.js -c $changeset_id -m map.json > changeset.osc
 
 >&2 echo "===> Uploading to changeset ${changeset_id}"
 curl -sX POST -d @changeset.osc -H "Content-Type: application/xml" ${osm_base_url}/api/0.6/changeset/${changeset_id}/upload -o response >&2

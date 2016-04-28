@@ -7,7 +7,8 @@ const execSync = require("child_process").execSync,
   path = require("path"),
   stream = require("stream");
 
-const builder = require("xmlbuilder"),
+const async = require("async"),
+  builder = require("xmlbuilder"),
   request = require("request"),
   xml2json = require("xml2json"),
   yaml = require("js-yaml"),
@@ -66,27 +67,64 @@ const renumber = entity => {
   }
 
   return entity;
-}
+};
 
-// entityType is singular
-const getVersion = (entityType, entityId, callback) => {
-  // TODO use async.cargo to batch requests
-  return request.get({
-    uri: OSM_BASE_URL + "/api/0.6/" + entityType + "/" + entityId
-  }, (err, rsp, xml) => {
-    if (err) {
-      return callback(err);
-    }
+// entityType is plural
+const createFetcher = (entityType) => {
+  return (tasks, next) => {
+    const ids = tasks.map(x => x.id);
 
-    const body = xml2json.toJson(xml, {
-      object: true,
+    return request.get({
+      uri: OSM_BASE_URL + "/api/0.6/" + entityType,
+      qs: {
+        [entityType]: ids.join(","),
+      }
+    }, (err, rsp, xml) => {
+      if (err) {
+        return next(err);
+      }
+
+      const body = xml2json.toJson(xml, {
+        arrayNotation: true, // ensure we get consistent results regardless of the number of results
+        // returned
+        object: true,
+      });
+
+      const versions = body.osm[0][OSM_ENTITY_TYPES[entityType]].reduce((obj, entity) => {
+        obj[entity.id] = entity.version;
+
+        return obj;
+      }, {});
+
+      tasks.forEach(x => {
+        if (versions[x.id]) {
+          return x.callback(null, versions[x.id]);
+        }
+
+        return x.callback(new Error("No version found for " + x.id));
+      })
+
+      return next();
     });
+  };
+};
 
-    return callback(null, body.osm[entityType].version);
+const fetchers = {
+  nodes: async.cargo(createFetcher("nodes"), 25),
+  ways: async.cargo(createFetcher("ways"), 25),
+  relations: async.cargo(createFetcher("relations"), 25),
+};
+
+// entityType is plural
+const getVersion = (entityType, entityId, callback) => {
+  return fetchers[entityType].push({
+    id: entityId,
+    callback
   });
 }
 
 const diffProcessor = new stream.Transform();
+let pending = 0;
 
 diffProcessor._transform = (line, _, callback) => {
   const parts = line.toString().trim().split("\t"),
@@ -94,6 +132,11 @@ diffProcessor._transform = (line, _, callback) => {
     filename = parts.shift(),
     entityType = path.dirname(filename),
     entityId = path.basename(filename, ".yaml");
+
+  // ignore non-YAML files
+  if (path.extname(filename) !== ".yaml") {
+    return callback();
+  }
 
   let entity;
 
@@ -118,9 +161,13 @@ diffProcessor._transform = (line, _, callback) => {
     // read the version of the entity that was deleted
     entity = yaml.safeLoad(execSync(`git show @^:${filename}`));
 
-    return getVersion(OSM_ENTITY_TYPES[entityType], entityId, (err, version) => {
+    pending++;
+
+    getVersion(entityType, entityId, (err, version) => {
+      pending--;
+
       if (err) {
-        return callback(err);
+        return console.warn(err.stack);
       }
 
       deletes.push({
@@ -128,9 +175,9 @@ diffProcessor._transform = (line, _, callback) => {
         type: OSM_ENTITY_TYPES[entityType],
         version: version,
       });
-
-      return callback();
     });
+
+    return callback();
 
   case "M":
     entity = yaml.safeLoad(fs.readFileSync(path.resolve(filename), "utf8"));
@@ -140,18 +187,21 @@ diffProcessor._transform = (line, _, callback) => {
 
     // renumber refs
     entity = renumber(entity);
+    pending++;
 
-    return getVersion(OSM_ENTITY_TYPES[entityType], entity.id, (err, version) => {
+    getVersion(entityType, entity.id, (err, version) => {
+      pending--;
+
       if (err) {
-        return callback(err);
+        return console.warn(err.stack);
       }
 
       entity.version = version;
 
       modifies.push(entity);
-
-      return callback();
     });
+
+    return callback();
 
   default:
     return callback(new Error("Unsupported action: " + action));
@@ -159,145 +209,156 @@ diffProcessor._transform = (line, _, callback) => {
 };
 
 diffProcessor._flush = function(callback) {
-  this.push(`<osmChange version="0.6" generator="POSM Replay Tool">\n`);
-
-  if (creates.length > 0) {
-    this.push("<create>\n");
-
-    // TODO this is the same as modify
-    creates.forEach(entity => {
-      let fragment = builder.create(entity.type);
-      fragment.att("id", entity.id);
-      fragment.att("version", entity.version);
-      fragment.att("changeset", changeset);
-
-      Object.keys(entity.tags || []).forEach(k => {
-        fragment.ele("tag", {
-          k,
-          v: entity.tags[k],
-        });
-      });
-
-      switch (entity.type) {
-      case "node":
-        fragment.att("lat", entity.lat);
-        fragment.att("lon", entity.lon);
-
-        break;
-
-      case "way":
-        (entity.nds || []).forEach(nd => {
-          fragment.ele("nd", {
-            ref: nd,
-          });
-        });
-
-        break;
-
-      case "relation":
-        (entity.members || []).forEach(member => {
-          fragment.ele("member", {
-            type: OSM_ENTITY_TYPES[member.type],
-            ref: member.ref,
-            role: member.role,
-          });
-        });
-
-        break;
+  // wait for pending requests to complete
+  return async.until(
+    () => pending === 0,
+    callback => setImmediate(callback),
+    (err) => {
+      if (err) {
+        return callback(err);
       }
 
-      this.push(fragment.toString({
-        pretty: true
-      }))
-    });
+      this.push(`<osmChange version="0.6" generator="POSM Replay Tool">\n`);
 
-    this.push("</create>\n");
-  }
+      if (creates.length > 0) {
+        this.push("<create>\n");
 
-  if (modifies.length > 0) {
-    this.push("<modify>\n");
+        // TODO this is the same as modify
+        creates.forEach(entity => {
+          let fragment = builder.create(entity.type);
+          fragment.att("id", entity.id);
+          fragment.att("version", entity.version);
+          fragment.att("changeset", changeset);
 
-    modifies.forEach(entity => {
-      let fragment = builder.create(entity.type);
-      fragment.att("id", entity.id);
-      fragment.att("version", entity.version);
-      fragment.att("changeset", changeset);
-
-      Object.keys(entity.tags || []).forEach(k => {
-        fragment.ele("tag", {
-          k,
-          v: entity.tags[k],
-        });
-      });
-
-      switch (entity.type) {
-      case "node":
-        fragment.att("lat", entity.lat);
-        fragment.att("lon", entity.lon);
-
-        break;
-
-      case "way":
-        (entity.nds || []).forEach(nd => {
-          fragment.ele("nd", {
-            ref: nd,
+          Object.keys(entity.tags || []).forEach(k => {
+            fragment.ele("tag", {
+              k,
+              v: entity.tags[k],
+            });
           });
+
+          switch (entity.type) {
+          case "node":
+            fragment.att("lat", entity.lat);
+            fragment.att("lon", entity.lon);
+
+            break;
+
+          case "way":
+            (entity.nds || []).forEach(nd => {
+              fragment.ele("nd", {
+                ref: nd,
+              });
+            });
+
+            break;
+
+          case "relation":
+            (entity.members || []).forEach(member => {
+              fragment.ele("member", {
+                type: OSM_ENTITY_TYPES[member.type],
+                ref: member.ref,
+                role: member.role,
+              });
+            });
+
+            break;
+          }
+
+          this.push(fragment.toString({
+            pretty: true
+          }))
         });
 
-        break;
-
-      case "relation":
-        (entity.members || []).forEach(member => {
-          fragment.ele("member", {
-            type: OSM_ENTITY_TYPES[member.type],
-            ref: member.ref,
-            role: member.role,
-          });
-        });
-
-        break;
+        this.push("</create>\n");
       }
 
-      this.push(fragment.toString({
-        pretty: true
-      }))
-    });
+      if (modifies.length > 0) {
+        this.push("<modify>\n");
 
-    this.push("</modify>\n");
-  }
+        modifies.forEach(entity => {
+          let fragment = builder.create(entity.type);
+          fragment.att("id", entity.id);
+          fragment.att("version", entity.version);
+          fragment.att("changeset", changeset);
 
-  if (deletes.length > 0) {
-    this.push(`<delete if-unused="true">\n`);
+          Object.keys(entity.tags || []).forEach(k => {
+            fragment.ele("tag", {
+              k,
+              v: entity.tags[k],
+            });
+          });
 
-    deletes.forEach(entity => {
-      let fragment = builder.create(entity.type);
-      fragment.att("id", entity.id);
-      fragment.att("version", entity.version);
-      fragment.att("changeset", changeset);
+          switch (entity.type) {
+          case "node":
+            fragment.att("lat", entity.lat);
+            fragment.att("lon", entity.lon);
 
-      this.push(fragment.toString({
-        pretty: true
-      }))
-    });
+            break;
 
-    this.push("</delete>\n");
-  }
+          case "way":
+            (entity.nds || []).forEach(nd => {
+              fragment.ele("nd", {
+                ref: nd,
+              });
+            });
 
-  this.push("</osmChange>\n");
+            break;
 
-  const reverseMap = Object.keys(placeholders).reduce((obj, type) => {
-    obj[type] = Object.keys(placeholders[type]).reduce((obj, originalId) => {
-      obj[placeholders[type][originalId]] = originalId;
+          case "relation":
+            (entity.members || []).forEach(member => {
+              fragment.ele("member", {
+                type: OSM_ENTITY_TYPES[member.type],
+                ref: member.ref,
+                role: member.role,
+              });
+            });
 
-      return obj;
-    }, {});
+            break;
+          }
 
-    return obj;
-  }, {})
+          this.push(fragment.toString({
+            pretty: true
+          }))
+        });
 
-  output.write(JSON.stringify(reverseMap));
+        this.push("</modify>\n");
+      }
 
-  return callback();
+      if (deletes.length > 0) {
+        this.push(`<delete if-unused="true">\n`);
+
+        deletes.forEach(entity => {
+          let fragment = builder.create(entity.type);
+          fragment.att("id", entity.id);
+          fragment.att("version", entity.version);
+          fragment.att("changeset", changeset);
+
+          this.push(fragment.toString({
+            pretty: true
+          }))
+        });
+
+        this.push("</delete>\n");
+      }
+
+      this.push("</osmChange>\n");
+
+      const reverseMap = Object.keys(placeholders).reduce((obj, type) => {
+        obj[type] = Object.keys(placeholders[type]).reduce((obj, originalId) => {
+          obj[placeholders[type][originalId]] = originalId;
+
+          return obj;
+        }, {});
+
+        return obj;
+      }, {})
+
+      output.write(JSON.stringify(reverseMap));
+
+      return callback();
+    }
+  );
 };
 
 process.stdin.pipe(new BinarySplitter()).pipe(diffProcessor).pipe(process.stdout);

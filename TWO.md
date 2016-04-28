@@ -169,7 +169,7 @@ git checkout -b applied upstream
 git --no-pager log --reverse --format=%h upstream..osm | while read commit; do
   >&2 echo "===> cherry-picking ${commit}"
 
-  # TODO confirm that theirs is right
+  # cherry-pick, preferring the local edits (with ids that need to be rewritten)
   git cherry-pick -X theirs $commit
 
   >&2 echo "===> poke away"
@@ -180,15 +180,24 @@ git --no-pager log --reverse --format=%h upstream..osm | while read commit; do
 
     # TODO C100 means that our renames weren't handled properly and we ended up with duplicates
 
+    # added by us
     git status --porcelain | grep ^AU | cut -d " " -f 2 | xargs git add
     # added by them
     git status --porcelain | grep ^UA | cut -d " " -f 2 | xargs git add
     # deleted by both
     git status --porcelain | grep ^DD | cut -d " " -f 2 | xargs git rm
 
-    (git status --porcelain | grep -q ^UU) && git mergetool -y --no-prompt
+    # TODO does the resolution here actually matter or can we pick the local reversion and renumber after?
+    # TODO should never happen with -X theirs
+    # (git status --porcelain | grep -q ^UU) && git mergetool -y --no-prompt
 
     git clean -f
+
+    if [ -f .git/map.json ]; then
+      node ../renumber.js -m .git/map.json
+
+      git add */
+    fi
 
     # git add */
 
@@ -202,3 +211,5 @@ git --no-pager log --reverse --format=%h upstream..osm | while read commit; do
   git tag -f upstream $commit
 done
 ```
+
+TODO don't track actual placeholders (negative values)
