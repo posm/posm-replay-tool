@@ -28,22 +28,22 @@ file_type=$(file -b --mime-type response)
 
 # check the response; if it was XML, it was successful
 if [ "application/xml" != "$file_type" ]; then
-  >&2 echo "Error:"
+  >&2 echo "Error uploading:"
   >&2 cat response
   >&2 echo
-
-  # TODO close the changeset
-  # Here's your chance to fix the data, generate the changeset and continue
+  >&2 echo "changeset.{xml,osc} remain for your perusal"
 
   exit 1
 fi
 
-cat response >&2
+cat response
 
 # stash the id remapping
 cat response | node ../handle-diffresult.js -m map.json > .git/${commit}.json
 # ensure that something exists
 test -f .git/map.json || echo "{}" > .git/map.json
+
+# merge the global remap w/ the one that was just generated
 cat .git/map.json .git/${commit}.json | jq -s '.[0] * .[1]' > .git/map2.json
 mv .git/map2.json .git/map.json
 
@@ -62,9 +62,10 @@ node ../renumber.js -m .git/map.json
 git add */
 
 >&2 echo "===> Committing transformation"
-git commit --allow-empty -F commit.message >> ../submit.log
+git commit --allow-empty -F commit.message
 
-git clean -f >> ../submit.log
+# remove temporary files used for submission and committing
+git clean -f
 
 # move the upstream tag now that it includes our data
 git tag -f upstream $commit
