@@ -7,7 +7,7 @@ if [[ "$commit" == "" ]]; then
   >&2 echo "Usage: $0 <commit>"
 fi
 
-set -uo pipefail
+set -euo pipefail
 
 # create a new remote changeset
 >&2 echo "===> Creating a new changeset"
@@ -56,13 +56,15 @@ echo >> commit.message
 cat response >> commit.message
 
 # renumber nds and members
+>&2 echo "===> Renumbering"
 node ../renumber.js -m .git/map.json
 
 git add */
 
-git commit --allow-empty -F commit.message
+>&2 echo "===> Committing transformation"
+git commit --allow-empty -F commit.message >> ../submit.log
 
-git clean -f
+git clean -f >> ../submit.log
 
 # move the upstream tag now that it includes our data
 git tag -f upstream $commit

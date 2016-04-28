@@ -178,18 +178,13 @@ git --no-pager log --reverse --format=%h upstream..osm | while read commit; do
   if [ -f .git/CHERRY_PICK_HEAD ]; then
     >&2 echo "===> git housekeeping"
 
-    # TODO C100 means that our renames weren't handled properly and we ended up with duplicates
-
+    # TODO possibly not actually necessary
     # added by us
     git status --porcelain | grep ^AU | cut -d " " -f 2 | xargs git add
     # added by them
     git status --porcelain | grep ^UA | cut -d " " -f 2 | xargs git add
     # deleted by both
     git status --porcelain | grep ^DD | cut -d " " -f 2 | xargs git rm
-
-    # TODO does the resolution here actually matter or can we pick the local reversion and renumber after?
-    # TODO should never happen with -X theirs
-    # (git status --porcelain | grep -q ^UU) && git mergetool -y --no-prompt
 
     git clean -f
 
@@ -213,3 +208,11 @@ done
 ```
 
 TODO don't track actual placeholders (negative values)
+
+Submit everything:
+
+```bash
+cd posm/
+git checkout -b applied upstream
+../submit-all.sh
+```
