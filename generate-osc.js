@@ -112,7 +112,7 @@ const createFetcher = (entityType) => {
         }
 
         return x.callback(new Error("No version found for " + x.id));
-      })
+      });
 
       return next();
     });

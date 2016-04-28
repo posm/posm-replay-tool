@@ -133,8 +133,6 @@ async.eachLimit(ways, 50, (filename, next) => {
   if (err) {
     throw err;
   }
-
-  console.log("Done checking ways.");
 });
 
 async.eachLimit(relations, 50, (filename, next) => {
@@ -169,6 +167,4 @@ async.eachLimit(relations, 50, (filename, next) => {
   if (err) {
     throw err;
   }
-
-  console.warn("Done checking relations.");
 });
