@@ -216,3 +216,9 @@ cd posm/
 git checkout -b applied upstream
 ../submit-all.sh
 ```
+
+To track the number of pending changesets, count the number of commits between the `upstream` marker and the tip of the `osm` branch:
+
+```bash
+watch "git --no-pager log --reverse --format=%h upstream..osm | wc -l"
+```
