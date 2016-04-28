@@ -5,102 +5,198 @@ a different endpoint, rewriting IDs as objects are created.
 
 ## Steps
 
-1. Choose a known starting point and generate XML corresponding to it. (AOI to start, but it's really about the MBR of all of the edits)
-2. Add the XML to an empty git repository
-3. Collect changesets from a running API
-4. Write them into `changesets/<#>.osc`
-5. Use `osmupdate` or Osmosis to apply each of the OSC files to the original XML
-6. Stage the OSC
-7. Commit the changes to the XML w/ changeset tags in the commit message
-7. Voilà, commit history as a git repository
+1. Obtain an AOI extract (PBF or XML) corresponding to the point where the local OSM API branched
+   from. (This should be the same file that was used to instantiate your local APIDB.)
+2. Gather local changesets.
+3. Initialize a git repository containing locally-modified entities present in the AOI extract.
+4. Obtain an AOI extract containing current data from your _upstream_ (presumably
+   openstreetmap.org).
+5. Extract and apply changes to locally-modified entities from the _current_ AOI extract.
+6. Create a branch representing the local history by applying all local changesets to a branch
+   containing the _starting_ AOI extract.
+7. Apply each local changeset to the branch containing the _current_ AOI extract.
+8. Manually resolve merge conflicts between local and upstream edits.
+9. Submit resolved changesets to your _upstream_ API, renumbering references to locally-created
+   entities as necessary.
 
-To replay:
+## Steps (in Detail)
 
-1. Run `git rebase --exec <base revision>`
-2. For each commit, submit the OSC (either present or generated from the diff
-   between the current and previous XML representations) file to an OSM API
-   using the changeset tags in the commit message
-3. Apply the resulting OSC (potentially with different IDs) to the previous XML
-   representation.
-4. `git commit --amend`
-5. `git rebase --continue` - ?? - will it correctly update changed ids?
+### 1. Obtain AOI Extract at Branch Point
 
-To replay:
+You should already have a copy of this file.
 
-1. `git checkout master`
-2. For each commit in `git cherry master | grep -v ^-` <- problematic because timestamp, version, and changeset cause `git patch-id` to change
-1. `git log --reverse --format=%h`
-3. `git checkout upstream`
-4. `git merge <commit> -s recursive -X theirs`
-4. `git cherry-pick -X theirs <commit>` <- merge strategy may be wrong, use patience instead
-5. If it fails to resolve cleanly (check for `.git/CHERRY_PICK_HEAD`), `git cherry-pick --abort` and go to (1) (potentially branching and rebasing against the most recent successful commit, leaving (cherry-picking?) failed commits on a "failed" branch)
-6. `foreach-commit.sh` (this will attempt to upload the changeset and will apply
-   notes and tag it with the changeset id)
-7. If it fails, `git reset --hard @~1` to drop the commit and go to (1) <- this is probably where cherry-picking failed commits makes sense (as it wasn't a local patch application problem)
-8. Process the `DiffResult` and `rebase --exec` from `<commit>..pending` to
-   rewrite IDs OR create a new commit and slip it in, hoping that subsequent ID usages will pick it up.
-   Update the version as well. Ideally both will match, but they may not.
-   Actually, applying the OSC fetched from OSM may effectively do this.
-9. TODO rewrite the pending commit's title so that it can be filtered out: `git commit --amend -m "uploaded as $(git show -s --format=%h pending)" <commit>``
-9. TODO or squash uploaded commits in the pending tree
-10. Process the next commit
+### 2. Gather Local Changesets
 
-We can largely ignore the XML diffing problem (outlined [here](http://www.scribd.com/doc/14482474/XML-diff-survey)), since the data we're working with is always structured the same way. To help with diffs, we split out attributes per-line.
+Determine the first local changeset. Assuming you have access to the local APIDB:
 
-TODO query the API for each modified way to see if its current state (version) matches what's expected.
-
-Rebase onto a different branch, `exec`ing each commit.
-
-```
-GIT_EDITOR=true git rebase -i -X ours --exec "/Users/seth/src/americanredcross/changeset-replay-tool/foreach-commit.sh" start
+```bash
+psql -d osm_posm -t -c "select id from changesets where num_changes > 0 order by id asc limit 1"
 ```
 
-To get the commit message only:
-git log --format=%B -n 1 [commit]
-git show -s --format=%B [commit]
+Gather changesets from the local OSM API into `changesets/`:
 
-To make word diffs character:
---word-diff-regex=.
-
-Attach notes with the response and appropriate debugging information (calculated
-changeset, submitted changeset).
-
-To test whether a patch will apply:
-
-```
-git show <commit> | git-apply --check -
+```bash
+OSM_BASE_URL=http://localhost:3000 ./gather_changesets.sh <first changeset id>
 ```
 
-Instead of rebasing, run through `git log` and attempt to apply each
+### 3. Initialize the git Repository from the Branch Point
 
-```
-git cherry-pick <commit>
-```
+Filter the AOI extract according to entities referenced in local changesets:
 
-Show changes left to apply:
-
-```
-[pending] git cherry uploaded
-```
-
-```
-<osmChange version="0.6" generator="osmconvert 0.8.5"><create><way id="401684942" version="1" timestamp="2016-03-13T02:40:12Z" changeset="37765189"><nd ref="4054910999"></nd><nd ref="4054911000"></nd><nd ref="4054911001"></nd><nd ref="4054911002"></nd><nd ref="4054910999"></nd><tag k="leisure" v="park"></tag><tag k="name" v="Parky Park"></tag></way></create></osmChange>
-===> Uploading to changeset 37765189
-Error:
-Precondition failed: Way  requires the nodes with id in (4054910999,4054911000,4054911001,4054911002), which either do not exist, or are not visible.
+```bash
+node filter-by-use.js huaquillas-fixed.pbf posm/ changesets/*.osc
+cd posm/
+git init
+git add .
+git commit -m "Branch point"
+git tag start
+git gc
+cd ..
 ```
 
-When testing:
+### 4. Obtain a Current AOI Extract
 
-* Create some new nodes + ways in the target database (or update the sequence)
-  to ensure that IDs need to be rewritten
+Calculate the bounding box for all local changesets and fetch the corresponding area from Overpass,
+converting to PBF for good measure:
 
-## Problematic Cases / Potential Conflicts
+```bash
+echo "(node($(node changeset-bbox.js changesets/*.xml | jq -r 'map(tostring) | [.[1], .[0], .[3], .[2]] | join(",")'));<;>>;>;);out meta;" > overpass.query
+wget -O aoi.xml --post-file=overpass.query http://overpass-api.de/api/interpreter
+osmconvert aoi.xml --out-pbf > aoi.pbf
+```
 
-* Changeset ID offset
-* Entity has been modified (has a different version number than expected) before being modified or deleted
-* Entity's refs have been deleted
-* Entity's refs were created locally (need to be re-numbered)
+### 5. Extract and Apply Upstream Changes
+
+Filter the AOI extract according to entities referenced in local changesets and apply to a new
+branch. This ensures that there's a common ancestor when moving commits between branches.
+
+```bash
+cd posm/
+rm -rf *
+cd ..
+
+node filter-by-use.js aoi.pbf posm/ changesets/*.osc
+cd posm/
+git add .
+git checkout -b osm
+git commit -m "Current OSM"
+git tag upstream
+git gc
+cd ..
+```
+
+### 6. Apply Local Changesets to the Branch Point
+
+This is effectively what has already occurred through editing using the OSM API, although doing it
+in `git` terms allows us to more easily move changes between branches.
+
+```bash
+cd posm/
+git checkout master
+cd ..
+
+REPO=posm ./preprocess-changesets.sh changesets/
+
+cd posm/
+git gc
+cd ..
+```
+
+### 7-8. Apply Local Changesets to the Upstream Version and Resolve Conflicts
+
+Walk through all local changesets and apply them to the upstream branch. This will open your
+configured `git` mergetool (`opendiff` / FileMerge on OS X), allowing you to resolve conflicts
+manually.
+
+TODO extract this into a script
+
+```bash
+cd posm/
+git checkout osm
+git tag marker start
+git --no-pager log --reverse --format=%h marker..master | while read sha1; do
+  git cherry-pick $sha1
+
+  echo Applying $sha1
+
+  if [ -f .git/CHERRY_PICK_HEAD ]; then
+    # remove files that were deleted by us (as we no longer refer to them and
+    # will submit the deletions as "if-unused")
+    git status --porcelain | grep ^UD | cut -d " " -f 2 | xargs git rm
+
+    # remove files that were deleted upstream
+    git status --porcelain | grep ^DU | cut -d " " -f 2 | xargs git rm
+
+    # data available to the mergetool:
+    #  * OSM version
+    #  * our version
+    #  * current version of OSM refs (via API) -- (we don't know the version ref'd)
+    #  * current version of our refs (via API, if POSM is available) -- (we don't know the version ref'd)
+
+    # In other words, we can show node movements, tag and ref/membership changes
+    # but not way/relation composition (visually)
+    # TODO sometimes this fails, in which case marker will have already been set to $sha1
+    git mergetool -y --no-prompt
+
+    git clean -f
+
+    git add */
+
+    git commit --allow-empty -C $sha1
+  fi
+
+  # remove temporary files
+  git clean -f
+
+  # update the marker
+  git tag -f marker $sha1
+done
+```
+
+### 9. Submit Resolved Changesets Upstream
+
+Create a new branch for changesets that have been applied upstream and walk through all local
+changesets, submitting them and renumbering (remapping entity IDs and references) as necessary.
+
+```bash
+cd posm/
+git checkout -b applied upstream
+../submit-all.sh
+```
+
+ID remapping information will be left behind in `.git/map.json` (cumulative) and `.git/<commit>.json` (per-changeset).
+
+To track the number of pending changesets, count the number of commits between the `upstream` marker and the tip of the `osm` branch:
+
+```bash
+watch "git --no-pager log --reverse --format=%h upstream..osm | wc -l"
+```
+
+## Tools
+
+### `apply-osc.js`
+
+### `changeset-bbox.js`
+
+### `filter-by-use.js`
+
+### `generate-osc.js`
+
+### `handle-diffresult.js`
+
+### `preprocess-changesets.sh`
+
+### `remap-userid.sh`
+
+### `renumber.js`
+
+### `submit-all.sh`
+
+### `submit.sh`
+
+---
+
+## Old Notes Follow
 
 ## Identifying Independent Commits
 

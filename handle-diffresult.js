@@ -16,6 +16,7 @@ const argv = yargs
   .usage("Usage: $0 [-m id map]")
   .argv;
 
+// TODO track placeholders separately so that the input doesn't get included in the output
 let placeholders = {
   nodes: {},
   ways: {},
