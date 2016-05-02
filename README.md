@@ -50,7 +50,6 @@ git init
 git add .
 git commit -m "Branch point"
 git tag start
-git gc
 cd ..
 ```
 
