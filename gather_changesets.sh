@@ -26,14 +26,14 @@ for ((changeset_id=$start; ; changeset_id++)); do
       --indent-attributes yes \
       -utf8 > changesets/${changeset_id}.xml
   curl -sf ${osm_base_url}/api/0.6/changeset/${changeset_id}/download \
-    -o changesets/${changeset_id}_osm.osc
+    -o changesets/${changeset_id}.orig
 
   # rewrite the changesets into a form that osmconvert is happy with
   osmosis -q \
-    --read-xml-change changesets/${changeset_id}_osm.osc \
+    --read-xml-change changesets/${changeset_id}.orig \
     --sort-change \
     --write-xml-change changesets/${changeset_id}.osc
-
-  # remove the OSM version
-  rm -f changesets/${changeset_id}_osm.osc
 done
+
+# delete the final changeset (which would have 404'd)
+rm -f changesets/${changeset_id}.xml
