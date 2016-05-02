@@ -6,6 +6,9 @@ const path = require("path");
 
 const osmium = require("osmium");
 
+// squelch EPIPE errors
+require("epipebomb")();
+
 if (process.argv[2] == null) {
   console.warn("Usage: changeset-bbox.js <changeset> [changeset...]");
   return process.exit(1);
