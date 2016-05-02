@@ -20,11 +20,11 @@ const osc = process.argv[2],
   handler = new osmium.Handler();
 
 handler.on("node", node => {
-  const basename = path.resolve(path.join(target, "nodes", node.id.toString()));
+  const filename = path.resolve(path.join(target, "nodes", node.id + ".yaml"));
 
   if (node.visible === false) {
     // delete
-    fs.unlinkSync(basename + ".yaml");
+    fs.unlinkSync(filename);
 
     return;
   }
@@ -42,19 +42,19 @@ handler.on("node", node => {
     obj.tags = tags;
   }
 
-  mkdirp.sync(path.resolve(path.dirname(basename)));
+  mkdirp.sync(path.resolve(path.dirname(filename)));
 
-  fs.writeFileSync(basename + ".yaml", yaml.safeDump(obj, {
+  fs.writeFileSync(filename, yaml.safeDump(obj, {
     sortKeys: true
   }), "utf8");
 });
 
 handler.on("way", way => {
-  const basename = path.resolve(path.join(target, "ways", way.id.toString()));
+  const filename = path.resolve(path.join(target, "ways", way.id + ".yaml"));
 
   if (way.visible === false) {
     // delete
-    fs.unlinkSync(basename + ".yaml");
+    fs.unlinkSync(filename);
 
     return;
   }
@@ -71,19 +71,19 @@ handler.on("way", way => {
     obj.tags = tags;
   }
 
-  mkdirp.sync(path.dirname(basename));
+  mkdirp.sync(path.dirname(filename));
 
-  fs.writeFileSync(basename + ".yaml", yaml.safeDump(obj, {
+  fs.writeFileSync(filename, yaml.safeDump(obj, {
     sortKeys: true
   }), "utf8");
 });
 
 handler.on("relation", relation => {
-  const basename = path.resolve(path.join(target, "relations", relation.id.toString()));
+  const filename = path.resolve(path.join(target, "relations", relation.id + ".yaml"));
 
   if (relation.visible === false) {
     // delete
-    fs.unlinkSync(basename + ".yaml");
+    fs.unlinkSync(filename);
 
     return;
   }
@@ -100,9 +100,9 @@ handler.on("relation", relation => {
     obj.tags = tags;
   }
 
-  mkdirp.sync(path.dirname(basename));
+  mkdirp.sync(path.dirname(filename));
 
-  fs.writeFileSync(basename + ".yaml", yaml.safeDump(obj, {
+  fs.writeFileSync(filename, yaml.safeDump(obj, {
     sortKeys: true
   }), "utf8");
 });
