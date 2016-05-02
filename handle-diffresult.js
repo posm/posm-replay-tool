@@ -16,7 +16,6 @@ const argv = yargs
   .usage("Usage: $0 [-m id map]")
   .argv;
 
-// TODO track placeholders separately so that the input doesn't get included in the output
 let placeholders = {
   nodes: {},
   ways: {},
@@ -48,6 +47,11 @@ saxStream.on("opentag", node => {
 
     // update the placeholder map to point to minted ids
     placeholders[type][originalId] = newId;
+
+    // delete negative placeholders
+    if (node.attributes.old_id < 0) {
+      delete placeholders[type][node.attributes.old_id];
+    }
 
     if (originalId !== newId) {
       // TODO use debug
