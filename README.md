@@ -3,6 +3,10 @@
 This tool collects changesets from an OSM API endpoint and replays them against
 a different endpoint, rewriting IDs as objects are created.
 
+## More Information
+
+* [Merging Offline Edits with the POSM Replay Tool](https://hi.stamen.com/merging-offline-edits-with-the-posm-replay-tool-2f39a4410d2a#.mmkq2x5xx)
+
 ## Steps
 
 1. Obtain an AOI extract (PBF or XML) corresponding to the point where the local OSM API branched
