@@ -31,3 +31,7 @@ logs
 pids
 *.pid
 *.seed
+
+############### posm-replay-tool ##############
+changesets/
+overpass.query

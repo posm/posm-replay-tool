@@ -1,4 +1,4 @@
-# Changeset Replay Tool
+# POSM Changeset Replay Tool
 
 This tool collects changesets from an OSM API endpoint and replays them against
 a different endpoint, rewriting IDs as objects are created.
@@ -34,13 +34,13 @@ You should already have a copy of this file.
 Determine the first local changeset. Assuming you have access to the local APIDB:
 
 ```bash
-psql -d osm_posm -t -c "select id from changesets where num_changes > 0 order by id asc limit 1"
+psql -d osm -t -c "select id from changesets where num_changes > 0 order by id asc limit 1"
 ```
 
 Gather changesets from the local OSM API into `changesets/`:
 
 ```bash
-OSM_BASE_URL=http://localhost:3000 ./gather_changesets.sh <first changeset id>
+OSM_BASE_URL=http://osm.posm.io ./gather_changesets.sh <first changeset id>
 ```
 
 ### 3. Initialize the git Repository from the Branch Point
