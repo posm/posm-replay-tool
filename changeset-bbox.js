@@ -41,7 +41,7 @@ const bbox = process.argv.slice(2).reduce((bbox, f) => {
     return bbox;  
 
   } catch (e) {
-    console.log('No bbox found in: ' + f);
+    console.error('No bbox found in: ' + f);
     return bbox;
   }
   
