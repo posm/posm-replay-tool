@@ -7,6 +7,24 @@ a different endpoint, rewriting IDs as objects are created.
 
 * [Merging Offline Edits with the POSM Replay Tool](https://hi.stamen.com/merging-offline-edits-with-the-posm-replay-tool-2f39a4410d2a#.mmkq2x5xx)
 
+## Requirements
+
+* NodeJS Version 4+
+* git
+* [jq](https://github.com/stedolan/jq)
+
+## Install
+
+Clone this repo and `npm install`.
+
+```
+git clone https://github.com/AmericanRedCross/posm-replay-tool.git
+cd posm-replay-tool
+npm install
+```
+
+We also are assuming that you have two [OpenStreetMap APIs](https://github.com/openstreetmap/openstreetmap-website) handy. When getting started, we recommend _not_ replaying changesets to the production OpenStreetMap. One easy way to set up an OSM server is to use [posm-build](https://github.com/AmericanRedCross/posm-build).
+
 ## Steps
 
 1. Obtain an AOI extract (PBF or XML) corresponding to the point where the local OSM API branched
