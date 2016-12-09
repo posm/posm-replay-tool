@@ -12,6 +12,7 @@ a different endpoint, rewriting IDs as objects are created.
 * NodeJS Version 4+
 * git
 * [jq](https://github.com/stedolan/jq)
+* [osmconvert](https://wiki.openstreetmap.org/wiki/Osmconvert)
 
 ## Install
 

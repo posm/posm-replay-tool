@@ -34,4 +34,6 @@ pids
 
 ############### posm-replay-tool ##############
 changesets/
+posm/
 overpass.query
+aoi.*
