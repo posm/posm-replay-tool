@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 commit=$1
-osm_base_url=${OSM_BASE_URL:-http://localhost:3001}
+target_osm_base_url=${TARGET_OSM_BASE_URL:-http://localhost:3001}
 
 if [[ "$commit" == "" ]]; then
   >&2 echo "Usage: $0 <commit>"
@@ -12,7 +12,7 @@ set -euo pipefail
 # create a new remote changeset
 >&2 echo "===> Creating a new changeset"
 git show -s --format=%B > changeset.xml
-changeset_id=$(curl -sfX PUT -d @changeset.xml -H "Content-Type: application/xml" ${osm_base_url}/api/0.6/changeset/create)
+changeset_id=$(curl -sfX PUT -d @changeset.xml -H "Content-Type: application/xml" ${target_osm_base_url}/api/0.6/changeset/create)
 
 >&2 echo "===> Generating OSMChange for ${changeset_id}"
 
@@ -20,7 +20,7 @@ changeset_id=$(curl -sfX PUT -d @changeset.xml -H "Content-Type: application/xml
 git diff --no-renames --name-status @^ | sort | node ../generate-osc.js -c $changeset_id -m map.json > changeset.osc
 
 >&2 echo "===> Uploading to changeset ${changeset_id}"
-curl -sX POST -d @changeset.osc -H "Content-Type: application/xml" ${osm_base_url}/api/0.6/changeset/${changeset_id}/upload -o response >&2
+curl -sX POST -d @changeset.osc -H "Content-Type: application/xml" ${target_osm_base_url}/api/0.6/changeset/${changeset_id}/upload -o response >&2
 
 file_type=$(file -b --mime-type response)
 
@@ -47,7 +47,7 @@ mv .git/map2.json .git/map.json
 
 # close the changeset
 >&2 echo "===> Closing changeset ${changeset_id}"
-curl -sfX PUT ${osm_base_url}/api/0.6/changeset/${changeset_id}/close
+curl -sfX PUT ${target_osm_base_url}/api/0.6/changeset/${changeset_id}/close
 
 echo "Changeset #${changeset_id}" > commit.message
 echo >> commit.message

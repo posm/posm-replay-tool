@@ -59,7 +59,7 @@ psql -d osm -t -c "select id from changesets where num_changes > 0 order by id a
 Gather changesets from the local OSM API into `changesets/`:
 
 ```bash
-OSM_BASE_URL=http://osm.posm.io ./gather_changesets.sh <first changeset id>
+SOURCE_OSM_BASE_URL=http://osm.posm.io ./gather_changesets.sh <first changeset id>
 ```
 
 ### 3. Initialize the git Repository from the Branch Point
@@ -68,6 +68,7 @@ Filter the AOI extract according to entities referenced in local changesets:
 
 ```bash
 node filter-by-use.js huaquillas-fixed.pbf posm/ changesets/*.osc
+mkdir posm
 cd posm/
 git init
 git add .
@@ -183,6 +184,7 @@ changesets, submitting them and renumbering (remapping entity IDs and references
 ```bash
 cd posm/
 git checkout -b applied upstream
+export TARGET_OSM_BASE_URL=<base OSM URL you are submitting to>
 ../submit-all.sh
 ```
 

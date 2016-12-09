@@ -16,7 +16,7 @@ const async = require("async"),
 
 const BinarySplitter = require("./lib/binary-splitter");
 
-const OSM_BASE_URL = process.env.OSM_BASE_URL || "http://localhost:3001";
+const TARGET_OSM_BASE_URL = process.env.TARGET_OSM_BASE_URL || "http://localhost:3001";
 
 const argv = yargs
   .usage("Usage: $0 [-c changeset_id] [-m id map]")
@@ -75,7 +75,7 @@ const createFetcher = (entityType) => {
     const ids = tasks.map(x => x.id);
 
     return request.get({
-      uri: OSM_BASE_URL + "/api/0.6/" + entityType,
+      uri: TARGET_OSM_BASE_URL + "/api/0.6/" + entityType,
       qs: {
         [entityType]: ids.join(","),
       }
