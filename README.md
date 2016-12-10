@@ -68,7 +68,6 @@ Filter the AOI extract according to entities referenced in local changesets:
 
 ```bash
 node filter-by-use.js huaquillas-fixed.pbf posm/ changesets/*.osc
-mkdir posm
 cd posm/
 git init
 git add .
@@ -107,6 +106,8 @@ git tag upstream
 git gc
 cd ..
 ```
+
+Note that if you have nothing to commit, that's fine. That just means that nothing changed upstream from the state of your source OSM's data and there is nothing to resolve.
 
 ### 6. Apply Local Changesets to the Branch Point
 
@@ -182,7 +183,6 @@ Create a new branch for changesets that have been applied upstream and walk thro
 changesets, submitting them and renumbering (remapping entity IDs and references) as necessary.
 
 ```bash
-cd posm/
 git checkout -b applied upstream
 export TARGET_OSM_BASE_URL=<base OSM URL you are submitting to>
 ../submit-all.sh
@@ -195,6 +195,12 @@ To track the number of pending changesets, count the number of commits between t
 ```bash
 watch "git --no-pager log --reverse --format=%h upstream..osm | wc -l"
 ```
+
+## Clean
+
+If you'd like to redo this procedure, reset your target OSM API DB to a fresh state (that's why you shouldn't be submitting to prod until confident).
+
+Then, delete the `changesets` and `posm` dirs.
 
 ## Tools
 
