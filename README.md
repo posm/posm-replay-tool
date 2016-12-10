@@ -1,4 +1,4 @@
-# Changeset Replay Tool
+# POSM Changeset Replay Tool
 
 This tool collects changesets from an OSM API endpoint and replays them against
 a different endpoint, rewriting IDs as objects are created.
@@ -6,6 +6,25 @@ a different endpoint, rewriting IDs as objects are created.
 ## More Information
 
 * [Merging Offline Edits with the POSM Replay Tool](https://hi.stamen.com/merging-offline-edits-with-the-posm-replay-tool-2f39a4410d2a#.mmkq2x5xx)
+
+## Requirements
+
+* NodeJS Version 4+
+* git
+* [jq](https://github.com/stedolan/jq)
+* [osmconvert](https://wiki.openstreetmap.org/wiki/Osmconvert)
+
+## Install
+
+Clone this repo and `npm install`.
+
+```
+git clone https://github.com/AmericanRedCross/posm-replay-tool.git
+cd posm-replay-tool
+npm install
+```
+
+We also are assuming that you have two [OpenStreetMap APIs](https://github.com/openstreetmap/openstreetmap-website) handy. When getting started, we recommend _not_ replaying changesets to the production OpenStreetMap. One easy way to set up an OSM server is to use [posm-build](https://github.com/AmericanRedCross/posm-build).
 
 ## Steps
 
@@ -34,13 +53,13 @@ You should already have a copy of this file.
 Determine the first local changeset. Assuming you have access to the local APIDB:
 
 ```bash
-psql -d osm_posm -t -c "select id from changesets where num_changes > 0 order by id asc limit 1"
+psql -d osm -t -c "select id from changesets where num_changes > 0 order by id asc limit 1"
 ```
 
 Gather changesets from the local OSM API into `changesets/`:
 
 ```bash
-OSM_BASE_URL=http://localhost:3000 ./gather_changesets.sh <first changeset id>
+SOURCE_OSM_BASE_URL=http://osm.posm.io ./gather_changesets.sh <first changeset id>
 ```
 
 ### 3. Initialize the git Repository from the Branch Point
@@ -87,6 +106,8 @@ git tag upstream
 git gc
 cd ..
 ```
+
+Note that if you have nothing to commit, that's fine. That just means that nothing changed upstream from the state of your source OSM's data and there is nothing to resolve.
 
 ### 6. Apply Local Changesets to the Branch Point
 
@@ -162,8 +183,8 @@ Create a new branch for changesets that have been applied upstream and walk thro
 changesets, submitting them and renumbering (remapping entity IDs and references) as necessary.
 
 ```bash
-cd posm/
 git checkout -b applied upstream
+export TARGET_OSM_BASE_URL=<base OSM URL you are submitting to>
 ../submit-all.sh
 ```
 
@@ -174,6 +195,12 @@ To track the number of pending changesets, count the number of commits between t
 ```bash
 watch "git --no-pager log --reverse --format=%h upstream..osm | wc -l"
 ```
+
+## Clean
+
+If you'd like to redo this procedure, reset your target OSM API DB to a fresh state (that's why you shouldn't be submitting to prod until confident).
+
+Then, delete the `changesets` and `posm` dirs.
 
 ## Tools
 
