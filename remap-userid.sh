@@ -11,4 +11,4 @@ sed=$(which sed)
 # use gsed if available
 type gsed > /dev/null && sed=$(which gsed)
 
-$sed -re "s/uid=\"$1\" user=\".+\"/uid=\"$1\" user=\"$2\"/"
+$sed -re "s/uid=\"$1\" user=\"[^"]+\"/uid=\"$1\" user=\"$2\"/"
